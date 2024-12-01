@@ -1,2 +1,9 @@
 streamlit
+pygithub
+gitpython
+sentence-transformers
+langchain
+langchain-community
 openai
+pinecone-client
+langchain-pinecone
