@@ -1,4 +1,4 @@
-# 💬 Chatbot template
+# 💬 Codebase Chatbot template
 
 A simple Streamlit app that shows how to build a an AI expert over a codebase using Retrieval-Augmented Generation (RAG). You'll implement the ability to chat with a codebase so you can understand how they work and what can be improved.
 
