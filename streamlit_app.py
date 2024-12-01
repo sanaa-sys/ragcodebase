@@ -56,22 +56,17 @@ def get_main_files_content(repo_path):
 
 # Function to get Hugging Face embeddings
 def get_huggingface_embeddings(text, model_name="sentence-transformers/all-mpnet-base-v2"):
-    model = SentenceTransformer(model_name)
-    return model.encode(text)
-
-# Function to get code chunks
-def get_code_chunks(file_content):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-    return text_splitter.split_text(file_content)
-
-# Function to perform RAG
-def perform_rag(query, namespace):
     raw_query_embedding = get_huggingface_embeddings(query)
     top_matches = pinecone_index.query(vector=raw_query_embedding.tolist(), top_k=5, include_metadata=True, namespace=namespace)
     contexts = [item['metadata']['text'] for item in top_matches['matches']]
-    augmented_query = "<CONTEXT>\n" + "\n\n-------\n\n".join(contexts[:10]) + "\n-------\n</CONTEXT>\n\n\n\nMY QUESTION:\n" + query
-    system_prompt = """You are a Senior Software Engineer working in Google for over 20 years.
-    Answer any questions I have about the codebase, based on the code provided. Always consider all of the context provided when forming a response."""
+    
+    if conversation_history:
+        augmented_query = "<CONTEXT>\n" + "\n\n-------\n\n".join(contexts[:10]) + "\n-------\n</CONTEXT>\n\n\n\nCONVERSATION HISTORY:\n" + "\n".join(conversation_history) + "\n\nMY QUESTION:\n" + query
+    else:
+        augmented_query = "<CONTEXT>\n" + "\n\n-------\n\n".join(contexts[:10]) + "\n-------\n</CONTEXT>\n\n\n\nMY QUESTION:\n" + query
+    
+    system_prompt = """You are a Senior Software Engineer, specializing in TypeScript.
+    Answer any questions I have about the codebase, based on the code provided and the conversation history (if any). Always consider all of the context provided when forming a response."""
     llm_response = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[
@@ -152,11 +147,12 @@ if st.session_state.repo_url:
             st.session_state.conversation_history.append(user_question)
             with st.spinner("Generating response..."):
                 try:
-                    response = perform_rag(user_question, st.session_state.repo_url, st.session_state.conversation_history)
+                    response = perform_rag(user_question, st.session_state.repo_url, st.session_state.conversation_history[:-1])  # Exclude the current question from history
                     st.session_state.conversation_history.append(response)
                     st.experimental_rerun()
                 except Exception as e:
                     st.error(f"An error occurred while generating the response: {str(e)}")
+                    st.session_state.conversation_history.pop()  # Remove the question if there was an error
 
 else:
     st.info("Please enter a GitHub repository URL to begin.")
